@@ -77,10 +77,9 @@ body {
   color: rgba(0, 216, 255, 0.7); /* Cyan placeholder text */
   font-size: 1em;
   font-weight: bold;
+  position: relative; /* For positioning cells inside */
 }
-#next-block-display::before {
-    content: "NEXT"; /* Placeholder text if empty */
-}
+/* Removed ::before for "NEXT" text as JS will render the block now */
 
 /* Button Styling */
 #restart-button {
@@ -235,4 +234,77 @@ body {
     border: 4px solid #ff3838;
     border-radius: 20px !important;
     box-shadow: 0 0 30px rgba(255, 56, 56, 0.8); /* More intense glow */
+}
+
+/* Speed Up Message Styling */
+#speed-up-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 3.5em; /* Large font */
+  color: #FFD700; /* Bright yellow */
+  font-weight: bold;
+  text-shadow: 0 0 5px #000, 0 0 15px #ff8c00, 0 0 25px #ff8c00; /* Orange/Gold glow */
+  z-index: 250; /* Very high to be on top of everything */
+  pointer-events: none;
+  background-color: rgba(0, 0, 0, 0.6); /* Semi-transparent backdrop */
+  padding: 20px 40px;
+  border-radius: 15px;
+  border: 3px solid #FFD700;
+  box-shadow: 0 0 20px rgba(0,0,0,0.5);
+}
+
+#speed-up-message.animate {
+  animation: speedUpZoom 1.5s ease-out forwards;
+}
+
+@keyframes speedUpZoom {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.3); }
+  15% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); } /* Quick zoom in */
+  30% { transform: translate(-50%, -50%) scale(1.0); } /* Settle */
+  85% { opacity: 1; transform: translate(-50%, -50%) scale(1.0); } /* Hold */
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); } /* Fade out */
+}
+
+/* Enhanced Line Clear Effects */
+.sparkle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background-color: #FFFFFF; /* Default, can be overridden */
+  border-radius: 50%;
+  box-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 15px var(--sparkle-color, #FFD700);
+  pointer-events: none;
+  z-index: 105; /* Above board, potentially adjust relative to other effects */
+  animation: sparkle-animation 1s ease-out forwards;
+  --sparkle-color: #FFD700; /* Default gold */
+}
+
+@keyframes sparkle-animation {
+  0% { opacity: 0; transform: scale(0.3) translate(0,0); }
+  30% { opacity: 1; transform: scale(1.2) translate(var(--tx, 0px), var(--ty, 0px)); }
+  100% { opacity: 0; transform: scale(0.3) translate(var(--tx-end, var(--tx, 0px)), var(--ty-end, var(--ty, 0px))); }
+}
+
+.light-ray {
+  position: absolute;
+  width: 3px; /* Slightly thicker for visibility */
+  height: 100px; /* Initial height, can be varied */
+  background: linear-gradient(to bottom,
+    transparent,
+    var(--light-color-mid, rgba(255,255,224,0.6)),
+    transparent);
+  pointer-events: none;
+  z-index: 100; /* Behind sparkles, adjust as needed */
+  transform-origin: center top; /* Rotate from top center */
+  animation: light-ray-animation 1.2s ease-out forwards;
+  --light-color-mid: rgba(255,255,224,0.6); /* Default pale yellow */
+}
+
+@keyframes light-ray-animation {
+  0% { opacity: 0; transform: scaleY(0.1) rotate(var(--angle-start, 0deg)); }
+  20% { opacity: 0.7; transform: scaleY(1) rotate(var(--angle-start, 0deg)); } /* Appear and grow */
+  80% { opacity: 0.7; transform: scaleY(1) rotate(var(--angle-end, var(--angle-start, 0deg))); } /* Hold and rotate if angle-end differs */
+  100% { opacity: 0; transform: scaleY(0.1) rotate(var(--angle-end, var(--angle-start, 0deg))); } /* Fade out */
 }
