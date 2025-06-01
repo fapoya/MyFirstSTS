@@ -53,7 +53,9 @@ const comboDisplayElement = document.getElementById('combo-display'); // Added f
 
 // Ensure main container exists for screen shake
 const mainContainerElement = document.querySelector('.main-container') || document.body;
-const rewardCueElement = document.getElementById('reward-cue'); // Added for reward cue
+const rewardCueElement = document.getElementById('reward-cue');
+const nextBlockDisplayElement = document.getElementById('next-block-display');
+const speedUpMessageElement = document.getElementById('speed-up-message'); // For Speed Up Animation
 
 
 gameBoardElement.style.width = `${BOARD_WIDTH * CELL_SIZE}px`;
@@ -67,9 +69,18 @@ gameBoardElement.style.backgroundColor = '#f0f0f0';
 let currentBlock;
 let currentPosition;
 let score = 0;
-let comboCount = 0; // Added for combo
+let comboCount = 0;
+let nextBlock = null;
 let gameLoopTimeoutId;
 let isGameOver = false;
+
+// Speed Management
+let totalLinesClearedOverall = 0;
+let gameSpeed = 700; // Initial game loop interval in ms
+const INITIAL_GAME_SPEED = 700;
+const MIN_GAME_SPEED = 100; // Fastest speed
+const LINES_PER_SPEED_INCREASE = 10; // Lines to clear for next speed up
+const SPEED_DECREMENT = 50; // How much to reduce interval by
 
 // --- Helper function to get color by ID ---
 function getTetrominoColorById(id) {
@@ -258,14 +269,28 @@ function lockBlockAndClearLines() {
     comboCount++;
     updateComboDisplay();
     triggerScreenShake();
-    triggerExplosionEffect(firstClearedLineY, linesCleared); // ADDED
+    triggerExplosionEffect(firstClearedLineY, linesCleared);
+    triggerSparkleAndLightEffects(firstClearedLineY, linesCleared); // ADDED
     updateScore(linesCleared, firstClearedLineY);
 
     if (linesCleared === 4) {
-      playSound('tetris-clear'); // ADDED
+      playSound('tetris-clear');
     } else {
-      playSound('line-clear'); // ADDED
+      playSound('line-clear');
     }
+
+    // Speed-up logic
+    const previousTotalLinesCleared = totalLinesClearedOverall;
+    totalLinesClearedOverall += linesCleared;
+    if (Math.floor(totalLinesClearedOverall / LINES_PER_SPEED_INCREASE) > Math.floor(previousTotalLinesCleared / LINES_PER_SPEED_INCREASE)) {
+      const oldSpeed = gameSpeed;
+      gameSpeed = Math.max(MIN_GAME_SPEED, gameSpeed - SPEED_DECREMENT);
+      if (gameSpeed !== oldSpeed) {
+        console.log("SPEED UP! New speed (interval ms):", gameSpeed);
+        triggerSpeedUpAnimation(); // Call animation
+      }
+    }
+
   } else if (currentBlock === null) {
     playSound('block-lock');
   }
@@ -299,6 +324,103 @@ function triggerRewardCue() {
     rewardCueElement.className = 'hidden'; // Ensure only hidden is present
   }, 2500); // Duration of pulse-fade animation
 }
+
+// --- Speed Up Animation ---
+function triggerSpeedUpAnimation() {
+  if (!speedUpMessageElement) return;
+
+  // If animation is already playing, don't restart it (optional, but good for rapid triggers)
+  // However, for this specific message, we probably want it to always play fully.
+  // So, we ensure it's hidden and not animating before starting.
+  speedUpMessageElement.classList.add('hidden');
+  speedUpMessageElement.classList.remove('animate');
+
+  // Use a slight delay to ensure the class changes are applied and animation restarts if triggered rapidly
+  setTimeout(() => {
+    speedUpMessageElement.classList.remove('hidden');
+    speedUpMessageElement.classList.add('animate');
+
+    function animationEndHandler() {
+      speedUpMessageElement.classList.add('hidden');
+      speedUpMessageElement.classList.remove('animate');
+      speedUpMessageElement.removeEventListener('animationend', animationEndHandler);
+    }
+    // Remove any previous listener before adding a new one
+    speedUpMessageElement.removeEventListener('animationend', animationEndHandler);
+    speedUpMessageElement.addEventListener('animationend', animationEndHandler);
+  }, 20); // Small delay like 20ms
+}
+
+// --- Sparkle and Light Effects ---
+function triggerSparkleAndLightEffects(clearedLineY, numLines) {
+  const sparkleColorsBase = ['#FFFFFF', '#FFD700', '#FFFFE0']; // White, Gold, LightYellow
+  const gemColors = ['#00FFFF', '#FF00FF', '#00FF00', '#FF4500']; // Cyan, Magenta, Lime, OrangeRed
+
+  let currentSparkleColors = [...sparkleColorsBase];
+  if (numLines >= 2) {
+    currentSparkleColors.push(...gemColors.slice(0, numLines - 1)); // Add more variety
+  }
+
+  // Sparkles
+  const numSparkles = 8 + numLines * 4; // e.g. 1 line = 12, 4 lines = 24
+  for (let i = 0; i < numSparkles; i++) {
+    const sparkle = document.createElement('div');
+    sparkle.className = 'sparkle';
+
+    const startX = Math.random() * BOARD_WIDTH * CELL_SIZE;
+    // Start sparkles around the vertical center of the cleared line(s)
+    const startY = (clearedLineY + (numLines / 2) + (Math.random() - 0.5) * numLines) * CELL_SIZE;
+
+    sparkle.style.left = `${startX}px`;
+    sparkle.style.top = `${startY}px`;
+
+    const travelX = (Math.random() - 0.5) * 100; // Horizontal travel
+    const travelY = (Math.random() - 0.5) * 80;  // Vertical travel
+    sparkle.style.setProperty('--tx', `${travelX}px`);
+    sparkle.style.setProperty('--ty', `${travelY}px`);
+    // For --tx-end, --ty-end, let's make them continue a bit further in the same direction
+    sparkle.style.setProperty('--tx-end', `${travelX * 1.5}px`);
+    sparkle.style.setProperty('--ty-end', `${travelY * 1.5}px`);
+
+    sparkle.style.setProperty('--sparkle-color', currentSparkleColors[Math.floor(Math.random() * currentSparkleColors.length)]);
+
+    gameBoardElement.appendChild(sparkle);
+    sparkle.addEventListener('animationend', () => sparkle.remove());
+  }
+
+  // Light Rays
+  if (numLines >= 1) { // Only show light rays if at least 1 line cleared
+    const numLightRays = 3 + numLines * 2; // e.g. 1 line = 5, 4 lines = 11
+    const lightRayColors = numLines >=3 ? [...sparkleColorsBase, ...gemColors] : sparkleColorsBase;
+
+    for (let i = 0; i < numLightRays; i++) {
+      const ray = document.createElement('div');
+      ray.className = 'light-ray';
+
+      // Origin point for rays: center of the cleared block of lines
+      const originX = (BOARD_WIDTH / 2) * CELL_SIZE;
+      const originY = (clearedLineY + numLines / 2) * CELL_SIZE;
+
+      ray.style.left = `${originX - parseFloat(ray.style.width || 3) / 2}px`; // Center the ray's own width
+      ray.style.top = `${originY}px`; // Rays originate from top-center of their own element
+
+      const angle = (i / numLightRays) * 360 + (Math.random() - 0.5) * (360 / numLightRays / 2);
+      // For light-ray-animation, --angle-start will be the main angle.
+      // Let's make them static for now, but could add rotation by setting --angle-end differently.
+      ray.style.setProperty('--angle-start', `${angle}deg`);
+      ray.style.setProperty('--angle-end', `${angle}deg`); // No rotation during animation itself
+
+      ray.style.setProperty('--light-color-mid', lightRayColors[Math.floor(Math.random() * lightRayColors.length)] + 'AA'); // Add alpha for softer look
+
+      // Vary height slightly
+      ray.style.height = `${80 + Math.random() * 40}px`;
+
+      gameBoardElement.appendChild(ray);
+      ray.addEventListener('animationend', () => ray.remove());
+    }
+  }
+}
+
 
 // --- Sound Effects ---
 function playSound(soundId) {
@@ -431,18 +553,87 @@ function gameOver() {
   gameBoardElement.appendChild(gameOverDiv);
 }
 
+// --- Next Block Display ---
+function renderNextBlock() {
+  if (!nextBlockDisplayElement) return;
+  nextBlockDisplayElement.innerHTML = ''; // Clear previous block
+
+  if (!nextBlock) return;
+
+  const shape = nextBlock.shape;
+  const color = nextBlock.color;
+  const NEXT_CELL_SIZE = 15; // Smaller cell size for preview
+
+  // Calculate offsets to center the block in the preview area
+  // Assuming nextBlockDisplayElement has fixed dimensions (e.g., 120x100 from CSS)
+  // For a 4x4 grid of NEXT_CELL_SIZE (60x60), we need to center this.
+  const displayWidth = nextBlockDisplayElement.clientWidth;
+  const displayHeight = nextBlockDisplayElement.clientHeight;
+
+  // Find actual width and height of the tetromino shape
+  let minRow = shape.length, maxRow = -1, minCol = shape[0].length, maxCol = -1;
+  shape.forEach((rowArr, r) => {
+      rowArr.forEach((cell, c) => {
+          if (cell !== 0) {
+              minRow = Math.min(minRow, r);
+              maxRow = Math.max(maxRow, r);
+              minCol = Math.min(minCol, c);
+              maxCol = Math.max(maxCol, c);
+          }
+      });
+  });
+
+  const blockActualWidth = (maxCol - minCol + 1) * NEXT_CELL_SIZE;
+  const blockActualHeight = (maxRow - minRow + 1) * NEXT_CELL_SIZE;
+
+  const offsetX = (displayWidth - blockActualWidth) / 2;
+  const offsetY = (displayHeight - blockActualHeight) / 2;
+
+
+  shape.forEach((row, y) => {
+    row.forEach((cell, x) => {
+      if (cell !== 0) {
+        const cellDiv = document.createElement('div');
+        cellDiv.style.position = 'absolute';
+        // Adjust x, y by minCol, minRow to only draw the filled part of the shape
+        cellDiv.style.left = `${offsetX + (x - minCol) * NEXT_CELL_SIZE}px`;
+        cellDiv.style.top = `${offsetY + (y - minRow) * NEXT_CELL_SIZE}px`;
+        cellDiv.style.width = `${NEXT_CELL_SIZE}px`;
+        cellDiv.style.height = `${NEXT_CELL_SIZE}px`;
+        cellDiv.style.backgroundColor = color;
+        cellDiv.style.border = '1px solid rgba(0,0,0,0.3)';
+        nextBlockDisplayElement.appendChild(cellDiv);
+      }
+    });
+  });
+}
+
 
 function spawnNewBlock() {
-  currentBlock = getRandomTetromino();
+  if (nextBlock === null) { // Should only happen on the very first spawn if startGame doesn't init
+    nextBlock = getRandomTetromino();
+  }
+  currentBlock = nextBlock;
+  nextBlock = getRandomTetromino();
+  renderNextBlock(); // Update the display with the new nextBlock
+
   currentPosition = {
     x: Math.floor(BOARD_WIDTH / 2) - Math.floor(currentBlock.shape[0].length / 2),
-    y: 0 // Start at the top; for some shapes, may need to adjust if they are taller
+    y: 0
   };
 
-  // Adjust y if block starts partially "above" the visible board (e.g. I-block vertical)
-  // This is tricky if the shape has empty top rows. Assuming shapes are "compact".
-  // For an I-block like [[0,1,0,0],[0,1,0,0],[0,1,0,0],[0,1,0,0]], y=0 is fine.
-  // For shapes like T: [[0,1,0],[1,1,1],[0,0,0]], y=0 is also fine.
+  // Adjust for blocks that are not centered in their 2D array (e.g. I block)
+  // This is a simple heuristic, might need refinement for perfect centering.
+  let minXInShape = currentBlock.shape[0].length;
+  for(let r=0; r<currentBlock.shape.length; ++r){
+    for(let c=0; c<currentBlock.shape[r].length; ++c){
+        if(currentBlock.shape[r][c] !== 0){
+            minXInShape = Math.min(minXInShape, c);
+        }
+    }
+  }
+  currentPosition.x -= minXInShape;
+
 
   if (checkCollision(currentBlock, currentPosition)) {
     gameOver();
@@ -463,7 +654,7 @@ function gameLoop() {
   }
 
   if (!isGameOver) { // Check again because spawnNewBlock might trigger game over
-      gameLoopTimeoutId = setTimeout(gameLoop, 700); // Adjust speed as needed
+      gameLoopTimeoutId = setTimeout(gameLoop, gameSpeed); // Use dynamic gameSpeed
   }
 }
 
@@ -471,14 +662,23 @@ function gameLoop() {
 function startGame() {
     board = Array(BOARD_HEIGHT).fill(null).map(() => Array(BOARD_WIDTH).fill(0));
     score = 0;
-    comboCount = 0; // Reset combo count
+    comboCount = 0;
     isGameOver = false;
+
+    // Reset speed variables
+    totalLinesClearedOverall = 0;
+    gameSpeed = INITIAL_GAME_SPEED;
+
     updateScore(0);
-    updateComboDisplay(); // Reset combo display
+    updateComboDisplay();
+
+    nextBlock = getRandomTetromino();
+    renderNextBlock();
     spawnNewBlock();
+
     if (gameLoopTimeoutId) clearTimeout(gameLoopTimeoutId);
-    gameLoop();
-    renderGame(); // Initial render
+    gameLoop(); // Will use the reset gameSpeed
+    renderGame();
 }
 
 // Event listener for keyboard input (basic controls)
