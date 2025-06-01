@@ -1,10 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>タイトル</title>
+  <title>Tetris Game</title>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-本文です。こんにちは。。
+  <div class="main-container">
+    <div id="game-board">
+      <div id="reward-cue" class="hidden"></div> <!-- Reward Cue Element -->
+    </div>
+    <div class="info-panel">
+      <div id="score-display">Score: 0</div>
+      <div id="combo-display">Combo: 0</div>
+      <div id="next-block-display">
+        <!-- Next block will be rendered here by JS if implemented -->
+      </div>
+      <button id="restart-button">Restart Game</button>
+    </div>
+  </div>
+  <script src="script.js"></script>
 </body>
 </html>
